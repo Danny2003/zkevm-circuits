@@ -6,10 +6,9 @@ use crate::{
             constraint_builder::EVMConstraintBuilder,
             math_gadget::IsZeroGadget,
             memory_gadget::{CommonMemoryAddressGadget, MemoryAddressGadget},
-            sum, CachedRegion, Cell, Word,
+            CachedRegion, Cell, Word,
         },
     },
-    table::CallContextFieldTag,
     util::{Expr, Field},
     witness::{Block, Call, ExecStep, Transaction},
 };
@@ -47,23 +46,6 @@ impl<F: Field> ExecutionGadget<F> for ErrorPrecompileFailedGadget<F> {
         let is_staticcall =
             IsZeroGadget::construct(cb, opcode.expr() - OpcodeId::STATICCALL.expr());
 
-        // constrain op code
-        // NOTE: this precompile gadget is for dummy use at the moment, the real error handling for
-        // precompile will be done in each precompile gadget in the future. won't add step
-        // state transition constraint here as well.
-        cb.require_true(
-            "opcode is one of [call, callcode, staticcall, delegatecall]",
-            sum::expr(vec![
-                is_call.expr(),
-                is_callcode.expr(),
-                is_delegatecall.expr(),
-                is_staticcall.expr(),
-            ]),
-        );
-
-        // Use rw_counter of the step which triggers next call as its call_id.
-        let callee_call_id = cb.curr.state.rw_counter.clone();
-
         let gas = cb.query_word_rlc();
         let callee_address = cb.query_word_rlc();
         let value = cb.query_word_rlc();
@@ -84,14 +66,6 @@ impl<F: Field> ExecutionGadget<F> for ErrorPrecompileFailedGadget<F> {
         cb.stack_pop(rd_offset.expr());
         cb.stack_pop(rd_length.expr());
         cb.stack_push(0.expr());
-
-        for (field_tag, value) in [
-            (CallContextFieldTag::LastCalleeId, callee_call_id.expr()),
-            (CallContextFieldTag::LastCalleeReturnDataOffset, 0.expr()),
-            (CallContextFieldTag::LastCalleeReturnDataLength, 0.expr()),
-        ] {
-            cb.call_context_lookup(true.expr(), None, field_tag, value);
-        }
 
         let cd_address = MemoryAddressGadget::construct(cb, cd_offset, cd_length);
         let rd_address = MemoryAddressGadget::construct(cb, rd_offset, rd_length);
