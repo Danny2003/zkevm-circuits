@@ -14,7 +14,7 @@ use crate::{
     },
     util::{Expr, Field},
 };
-use eth_types::evm_types::{GasCost, OpcodeId};
+use eth_types::evm_types::GasCost;
 use halo2_proofs::{circuit::Value, plonk::Error};
 
 const MAXCODESIZE: u64 = 0x6000u64;
@@ -38,12 +38,6 @@ impl<F: Field> ExecutionGadget<F> for ErrorCodeStoreGadget<F> {
 
     fn configure(cb: &mut EVMConstraintBuilder<F>) -> Self {
         let opcode = cb.query_cell();
-        // constrain opcodes
-        cb.require_equal(
-            "ErrorCodeStore checking at RETURN in create context",
-            opcode.expr(),
-            OpcodeId::RETURN.expr(),
-        );
 
         let offset = cb.query_cell_phase2();
         let length = cb.query_word_rlc();
@@ -129,7 +123,6 @@ impl<F: Field> ExecutionGadget<F> for ErrorCodeStoreGadget<F> {
 
 #[cfg(test)]
 mod test {
-    use crate::test_util::CircuitTestBuilder;
     use bus_mapping::circuit_input_builder::CircuitsParams;
     use eth_types::{
         address,
@@ -141,12 +134,15 @@ mod test {
         Word,
         // word,
     };
+
     use mock::{eth, TestContext, MOCK_ACCOUNTS};
-    use std::sync::LazyLock;
+
+    use crate::test_util::CircuitTestBuilder;
 
     const CALLEE_ADDRESS: Address = Address::repeat_byte(0xff);
-    static CALLER_ADDRESS: LazyLock<Address> =
-        LazyLock::new(|| address!("0x00bbccddee000000000000000000000000002400"));
+    lazy_static! {
+        static ref CALLER_ADDRESS: Address = address!("0x00bbccddee000000000000000000000000002400");
+    }
 
     const MAXCODESIZE: u64 = 0x6000u64;
 
@@ -159,7 +155,7 @@ mod test {
             .run();
     }
 
-    fn get_initcode(is_oog: bool) -> Bytecode {
+    fn initialization_bytecode(is_oog: bool) -> Bytecode {
         let memory_bytes = [0x60; 10];
         let memory_value = Word::from_big_endian(&memory_bytes);
         let code_len = if is_oog { 0 } else { MAXCODESIZE + 1 };
@@ -178,16 +174,16 @@ mod test {
         code
     }
 
-    fn creator_bytecode(initcode: Bytecode, is_create2: bool) -> Bytecode {
-        let initcode_bytes = initcode.code();
+    fn creator_bytecode(initialization_bytecode: Bytecode, is_create2: bool) -> Bytecode {
+        let initialization_bytes = initialization_bytecode.code();
         let mut code = Bytecode::default();
 
         // construct maxcodesize + 1 memory bytes
-        let code_creator: Vec<u8> = initcode_bytes
+        let code_creator: Vec<u8> = initialization_bytes
             .to_vec()
             .iter()
             .cloned()
-            .chain(0u8..((32 - initcode_bytes.len() % 32) as u8))
+            .chain(0u8..((32 - initialization_bytes.len() % 32) as u8))
             .collect();
         for (index, word) in code_creator.chunks(32).enumerate() {
             code.push(32, Word::from_big_endian(word));
@@ -199,7 +195,7 @@ mod test {
             code.append(&bytecode! {PUSH1(45)}); // salt;
         }
         code.append(&bytecode! {
-            PUSH32(initcode_bytes.len()) // size
+            PUSH32(initialization_bytes.len()) // size
             PUSH2(0x00) // offset
             PUSH2(23414) // value
         });
@@ -244,8 +240,8 @@ mod test {
     #[test]
     fn test_create_codestore_oog() {
         for is_create2 in [false, true] {
-            let initcode = get_initcode(true);
-            let root_code = creator_bytecode(initcode, is_create2);
+            let initialization_code = initialization_bytecode(true);
+            let root_code = creator_bytecode(initialization_code, is_create2);
             let caller = Account {
                 address: *CALLER_ADDRESS,
                 code: root_code.into(),
@@ -260,8 +256,8 @@ mod test {
     #[test]
     fn test_create_max_code_size_exceed() {
         for is_create2 in [false, true] {
-            let initcode = get_initcode(false);
-            let root_code = creator_bytecode(initcode, is_create2);
+            let initialization_code = initialization_bytecode(false);
+            let root_code = creator_bytecode(initialization_code, is_create2);
             let caller = Account {
                 address: *CALLER_ADDRESS,
                 code: root_code.into(),
@@ -275,7 +271,7 @@ mod test {
 
     #[test]
     fn tx_deploy_code_store_oog() {
-        let code = get_initcode(true);
+        let code = initialization_bytecode(true);
 
         let ctx = TestContext::<1, 1>::new(
             None,
@@ -298,7 +294,7 @@ mod test {
 
     #[test]
     fn tx_deploy_max_code_size_exceed() {
-        let code = get_initcode(false);
+        let code = initialization_bytecode(false);
 
         let ctx = TestContext::<1, 1>::new(
             None,
