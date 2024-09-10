@@ -1,15 +1,13 @@
 use crate::{
     evm_circuit::{
         execution::ExecutionGadget,
-        param::N_BYTES_MEMORY_ADDRESS,
         step::ExecutionState,
         util::{
             common_gadget::CommonErrorGadget,
-            constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
-            from_bytes,
+            constraint_builder::EVMConstraintBuilder,
             math_gadget::IsEqualGadget,
-            memory_gadget::{MemoryMask, MemoryWordAddress},
-            CachedRegion, Cell, RandomLinearCombination, Word,
+            memory_gadget::{CommonMemoryAddressGadget, MemoryAddressGadget},
+            CachedRegion, Cell,
         },
         witness::{Block, Call, ExecStep, Transaction},
     },
@@ -17,19 +15,15 @@ use crate::{
 };
 
 use crate::util::Field;
-use eth_types::{evm_types::OpcodeId, ToLittleEndian};
 use halo2_proofs::{circuit::Value, plonk::Error};
 
 /// Gadget for code store oog and max code size exceed
 #[derive(Clone, Debug)]
 pub(crate) struct ErrorInvalidCreationCodeGadget<F> {
     opcode: Cell<F>,
-    memory_address: MemoryWordAddress<F>,
-    length: RandomLinearCombination<F, N_BYTES_MEMORY_ADDRESS>,
-    value_left: Word<F>,
+    memory_address: MemoryAddressGadget<F>,
     first_byte: Cell<F>,
     is_first_byte_invalid: IsEqualGadget<F>,
-    mask: MemoryMask<F>,
     common_error_gadget: CommonErrorGadget<F>,
 }
 
@@ -40,37 +34,19 @@ impl<F: Field> ExecutionGadget<F> for ErrorInvalidCreationCodeGadget<F> {
 
     fn configure(cb: &mut EVMConstraintBuilder<F>) -> Self {
         let opcode = cb.query_cell();
-        // constrain opcodes
-        cb.require_equal(
-            "ErrorInvalidCreationCode checking at RETURN in create context",
-            opcode.expr(),
-            OpcodeId::RETURN.expr(),
-        );
         let first_byte = cb.query_cell();
 
-        //let address = cb.query_word_rlc();
-
-        let offset = cb.query_word_rlc();
+        let offset = cb.query_cell_phase2();
         let length = cb.query_word_rlc();
-        let value_left = cb.query_word_rlc();
 
         cb.stack_pop(offset.expr());
         cb.stack_pop(length.expr());
         cb.require_true("is_create is true", cb.curr.state.is_create.expr());
 
-        let address_word = MemoryWordAddress::construct(cb, offset.clone());
-        // lookup memory for first word
-        cb.memory_lookup(
-            0.expr(),
-            address_word.addr_left(),
-            value_left.expr(),
-            value_left.expr(),
-            None,
-        );
+        let memory_address = MemoryAddressGadget::construct(cb, offset, length);
+        // lookup memory for first byte
+        cb.memory_lookup(0.expr(), memory_address.offset(), first_byte.expr(), None);
 
-        // first_byte come from address_word
-        let mask = MemoryMask::construct(cb, &address_word.shift_bits(), 1.expr());
-        mask.require_equal_unaligned_byte(cb, first_byte.expr(), &value_left);
         // constrain first byte is 0xef
         let is_first_byte_invalid = IsEqualGadget::construct(cb, first_byte.expr(), 0xef.expr());
 
@@ -83,18 +59,15 @@ impl<F: Field> ExecutionGadget<F> for ErrorInvalidCreationCodeGadget<F> {
             cb,
             opcode.expr(),
             5.expr(),
-            from_bytes::expr(&offset.cells[..N_BYTES_MEMORY_ADDRESS]),
-            from_bytes::expr(&length.cells[..N_BYTES_MEMORY_ADDRESS]),
+            memory_address.offset(),
+            memory_address.length(),
         );
 
         Self {
             opcode,
-            is_first_byte_invalid,
             first_byte,
-            memory_address: address_word,
-            length,
-            value_left,
-            mask,
+            is_first_byte_invalid,
+            memory_address,
             common_error_gadget,
         }
     }
@@ -114,38 +87,19 @@ impl<F: Field> ExecutionGadget<F> for ErrorInvalidCreationCodeGadget<F> {
 
         let [memory_offset, length] = [0, 1].map(|i| block.rws[step.rw_indices[i]].stack_value());
         self.memory_address
-            .assign(region, offset, memory_offset.as_u64())?;
+            .assign(region, offset, memory_offset, length)?;
 
-        self.length.assign(
-            region,
-            offset,
-            Some(
-                length.to_le_bytes()[..N_BYTES_MEMORY_ADDRESS]
-                    .try_into()
-                    .unwrap(),
-            ),
-        )?;
-
-        let word_left = block.rws[step.rw_indices[2]].memory_word_pair().0;
-        self.value_left
-            .assign(region, offset, Some(word_left.to_le_bytes()))?;
-
-        let mut bytes = word_left.to_le_bytes();
-        bytes.reverse();
-
-        let first_byte: u8 = bytes[0];
+        let byte = block.rws[step.rw_indices[2]].memory_value();
 
         self.first_byte
-            .assign(region, offset, Value::known(F::from(first_byte as u64)))?;
+            .assign(region, offset, Value::known(F::from(byte as u64)))?;
         self.is_first_byte_invalid.assign(
             region,
             offset,
-            F::from(first_byte as u64),
+            F::from(byte as u64),
             F::from(0xef_u64),
         )?;
 
-        let shift = memory_offset.as_u64() % 32;
-        self.mask.assign(region, offset, shift, true)?;
         self.common_error_gadget
             .assign(region, offset, block, call, step, 5)?;
         Ok(())
@@ -158,15 +112,16 @@ mod test {
     use eth_types::{
         address, bytecode, evm_types::OpcodeId, geth_types::Account, Address, Bytecode, Word,
     };
-    use std::sync::LazyLock;
 
+    use lazy_static::lazy_static;
     use mock::{eth, TestContext, MOCK_ACCOUNTS};
 
     use crate::test_util::CircuitTestBuilder;
 
     const CALLEE_ADDRESS: Address = Address::repeat_byte(0xff);
-    static CALLER_ADDRESS: LazyLock<Address> =
-        LazyLock::new(|| address!("0x00bbccddee000000000000000000000000002400"));
+    lazy_static! {
+        static ref CALLER_ADDRESS: Address = address!("0x00bbccddee000000000000000000000000002400");
+    }
 
     const MAXCODESIZE: u64 = 0x6000u64;
 
@@ -179,7 +134,7 @@ mod test {
             .run();
     }
 
-    fn get_initcode() -> Bytecode {
+    fn initialization_bytecode() -> Bytecode {
         let memory_bytes = [0xef; 10];
         let memory_value = Word::from_big_endian(&memory_bytes);
 
@@ -188,7 +143,7 @@ mod test {
             PUSH32(0)
             MSTORE
             PUSH2( 5 ) // length to copy
-            PUSH2(u64::try_from(memory_bytes.len()).unwrap()) // offset
+            PUSH2(32u64 - u64::try_from(memory_bytes.len()).unwrap()) // offset
             //PUSH2(0x00) // offset
 
         };
@@ -197,8 +152,8 @@ mod test {
         code
     }
 
-    fn creator_bytecode(get_initcode: Bytecode, is_create2: bool) -> Bytecode {
-        let initialization_bytes = get_initcode.code();
+    fn creator_bytecode(initialization_bytecode: Bytecode, is_create2: bool) -> Bytecode {
+        let initialization_bytes = initialization_bytecode.code();
         let mut code = Bytecode::default();
 
         // construct maxcodesize + 1 memory bytes
@@ -259,8 +214,8 @@ mod test {
     #[test]
     fn test_invalid_creation_code() {
         for is_create2 in [false, true] {
-            let initcode = get_initcode();
-            let root_code = creator_bytecode(initcode, is_create2);
+            let initialization_code = initialization_bytecode();
+            let root_code = creator_bytecode(initialization_code, is_create2);
             let caller = Account {
                 address: *CALLER_ADDRESS,
                 code: root_code.into(),
@@ -275,7 +230,7 @@ mod test {
     // add tx deploy case for invalid creation code.
     #[test]
     fn test_tx_deploy_invalid_creation_code() {
-        let code = get_initcode();
+        let code = initialization_bytecode();
 
         let ctx = TestContext::<1, 1>::new(
             None,
