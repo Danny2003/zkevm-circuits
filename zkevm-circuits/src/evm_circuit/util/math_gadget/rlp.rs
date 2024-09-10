@@ -48,15 +48,10 @@ impl<F: Field> RlpU64Gadget<F> {
                 .map(|(byte, indicator)| byte.expr() * indicator.expr()),
         );
         let most_significant_byte_is_zero = IsZeroGadget::construct(cb, most_significant_byte);
-        let is_lt_128 = cb.query_bool();
 
         let value = expr_from_bytes(&value_rlc.cells);
         cb.condition(most_significant_byte_is_zero.expr(), |cb| {
             cb.require_zero("if most significant byte is 0, value is 0", value.clone());
-            cb.require_zero(
-                "if most significant byte is 0, value is less than 128",
-                1.expr() - is_lt_128.expr(),
-            );
         });
 
         for (i, is_most_significant) in is_most_significant_byte.iter().enumerate() {
@@ -74,18 +69,10 @@ impl<F: Field> RlpU64Gadget<F> {
             });
         }
 
-        // If is_lt_128, then value < 128, checked by a lookup.
-
-        // Otherwise, then value >= 128, checked as follows:
-        // - Either the first byte is not the most significant, and there is a more significant one;
-        // - Or the first byte is the most significant, and it is >= 128. value ∈ [128, 256) (value
-        //   - 128) ∈ [0, 128)
-        let byte_128 = value_rlc.cells[0].expr() - 128.expr();
-        let is_first = is_most_significant_byte[0].expr();
-        let byte_128_or_zero = byte_128 * is_first;
-
-        let value_lt_128 = select::expr(is_lt_128.expr(), value, byte_128_or_zero);
-        cb.range_lookup(value_lt_128, 128);
+        let is_lt_128 = cb.query_bool();
+        cb.condition(is_lt_128.expr(), |cb| {
+            cb.range_lookup(value, 128);
+        });
 
         Self {
             value_rlc,
@@ -328,10 +315,7 @@ impl<F: Field, const IS_CREATE2: bool> ContractCreateGadget<F, IS_CREATE2> {
     }
 
     /// Init Code's keccak hash keccak RLC.
-    pub(crate) fn keccak_code_hash_keccak_rlc(
-        &self,
-        cb: &EVMConstraintBuilder<F>,
-    ) -> Expression<F> {
+    pub(crate) fn keccak_code_hash_keccak_rlc(&self, cb: &EVMConstraintBuilder<F>) -> Expression<F> {
         cb.keccak_rlc::<N_BYTES_WORD>(
             self.keccak_code_hash
                 .iter()
@@ -424,16 +408,13 @@ impl<F: Field, const IS_CREATE2: bool> ContractCreateGadget<F, IS_CREATE2> {
 #[cfg(test)]
 mod test {
     use super::{super::test_util::*, ContractCreateGadget};
-    use crate::util::Field;
-    use eth_types::{state_db::CodeDB, ToAddress, ToLittleEndian, ToWord, Word};
+    use bus_mapping::state_db::CodeDB;
+    use eth_types::{Field, ToAddress, ToLittleEndian, ToWord, Word};
     use ethers_core::utils::keccak256;
     use gadgets::util::{not, Expr};
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::evm_circuit::util::{
-        constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
-        CachedRegion, Cell,
-    };
+    use crate::evm_circuit::util::{constraint_builder::EVMConstraintBuilder, CachedRegion, Cell};
 
     #[derive(Clone)]
     struct ContractCreateGadgetContainer<F, const IS_CREATE2: bool> {
@@ -580,7 +561,7 @@ mod test {
             };
             try_test!(
                 ContractCreateGadgetContainer<Fr, false>,
-                [
+                vec![
                     caller_address.to_word(),
                     Word::from(caller_nonce),
                     rlp_len,
@@ -595,12 +576,12 @@ mod test {
     fn create2_address() {
         let caller_address = mock::MOCK_ACCOUNTS[0];
         let salt = Word::from(0xbeefcafedeadu64);
-        let code = [1, 2, 3, 4, 5, 6, 7, 8];
+        let code = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let code_hash = Word::from(CodeDB::hash(&code).to_fixed_bytes());
-        let keccak_code_hash = Word::from(keccak256(code));
+        let keccak_code_hash = Word::from(keccak256(&code));
         try_test!(
             ContractCreateGadgetContainer<Fr, true>,
-            [
+            vec![
                 caller_address.to_word(),
                 Word::default(),
                 85u64.into(),
