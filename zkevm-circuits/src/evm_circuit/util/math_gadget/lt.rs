@@ -1,10 +1,7 @@
 use crate::{
-    evm_circuit::{
-        param::MAX_N_BYTES_INTEGER,
-        util::{
-            constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
-            from_bytes, pow_of_two, transpose_val_ret, CachedRegion, Cell,
-        },
+    evm_circuit::util::{
+        constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
+        from_bytes, pow_of_two, transpose_val_ret, CachedRegion, Cell,
     },
     util::{Expr, Field},
 };
@@ -36,7 +33,6 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         lhs: Expression<F>,
         rhs: Expression<F>,
     ) -> Self {
-        assert!(N_BYTES <= MAX_N_BYTES_INTEGER);
         let lt = cb.query_bool();
         let diff = cb.query_bytes();
         let range = pow_of_two(N_BYTES * 8);
@@ -105,7 +101,6 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
 #[cfg(test)]
 mod tests {
     use super::{super::test_util::*, *};
-    use crate::util::Field;
     use eth_types::*;
     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Error};
 
@@ -152,12 +147,12 @@ mod tests {
     fn test_lt_expect() {
         try_test!(
             LtGadgetTestContainer<Fr>,
-            [Word::from(0), Word::from(1)],
+            vec![Word::from(0), Word::from(1)],
             true,
         );
         try_test!(
             LtGadgetTestContainer<Fr>,
-            [Word::from(0), Word::from(0)],
+            vec![Word::from(0), Word::from(0)],
             false,
         );
     }
@@ -166,7 +161,7 @@ mod tests {
     fn test_lt_just_in_range() {
         try_test!(
             LtGadgetTestContainer<Fr>,
-            [Word::from(1), Word::from((1u64 << (N * 8)) - 1)],
+            vec![Word::from(1), Word::from((1u64 << (N * 8)) - 1)],
             true,
         );
     }
@@ -175,7 +170,7 @@ mod tests {
     fn test_lt_out_of_range() {
         try_test!(
             LtGadgetTestContainer<Fr>,
-            [Word::from(1), Word::from(2 << (N * 8))],
+            vec![Word::from(1), Word::from(2 << (N * 8))],
             false,
         );
     }
