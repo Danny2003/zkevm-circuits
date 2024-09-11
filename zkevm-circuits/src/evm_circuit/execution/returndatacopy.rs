@@ -111,7 +111,7 @@ impl<F: Field> ExecutionGadget<F> for ReturnDataCopyGadget<F> {
         // Calculate the next memory size and the gas cost for this memory
         // access. This also accounts for the dynamic gas required to copy bytes to
         // memory.
-        let memory_expansion = MemoryExpansionGadget::construct(cb, [dst_memory_addr.address()]);
+        let memory_expansion = MemoryExpansionGadget::construct(cb, [dst_memory_addr.end_offset()]);
         let memory_copier_gas = MemoryCopierGasGadget::construct(
             cb,
             dst_memory_addr.length(),
@@ -177,7 +177,7 @@ impl<F: Field> ExecutionGadget<F> for ReturnDataCopyGadget<F> {
         _call: &Call,
         step: &ExecStep,
     ) -> Result<(), Error> {
-        self.same_context.assign_exec_step(region, offset, step)?;
+        self.same_context.assign_exec_step(region, offset, block, _call, step)?;
 
         let [dest_offset, data_offset, size] =
             [0, 1, 2].map(|i| block.rws[step.rw_indices[i as usize]].stack_value());
