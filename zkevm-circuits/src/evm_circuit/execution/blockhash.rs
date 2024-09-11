@@ -101,10 +101,10 @@ impl<F: Field> ExecutionGadget<F> for BlockHashGadget<F> {
         offset: usize,
         block: &Block,
         tx: &Transaction,
-        _: &Call,
+        call: &Call,
         step: &ExecStep,
     ) -> Result<(), Error> {
-        self.same_context.assign_exec_step(region, offset, step)?;
+        self.same_context.assign_exec_step(region, offset, block, call, step)?;
 
         let current_block_number = block.context.ctxs[&tx.block_number].number;
         let current_block_number = current_block_number
