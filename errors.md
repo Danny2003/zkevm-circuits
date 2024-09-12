@@ -3,21 +3,6 @@
 ### error type: argument count mismatch & method not found
 
 ```bash
-error[E0599]: no method named `address` found for struct `MemoryAddressGadget` in the current scope
-   --> zkevm-circuits/src/evm_circuit/execution/create.rs:138:27
-    |
-138 |                 init_code.address(),
-    |                           ^^^^^^^ method not found in `MemoryAddressGadget<F>`
-    |
-   ::: zkevm-circuits/src/evm_circuit/util/memory_gadget.rs:74:1
-    |
-74  | pub(crate) struct MemoryAddressGadget<F> {
-    | ---------------------------------------- method `address` not found for this struct
-    |
-    = help: items from traits can only be used if the trait is implemented and in scope
-    = note: the following trait defines an item `address`, perhaps you need to implement it:
-            candidate #1: `ethers_signers::Signer`
-
 error[E0061]: this function takes 9 arguments but 7 arguments were supplied
    --> zkevm-circuits/src/evm_circuit/execution/create.rs:283:38
     |
@@ -55,21 +40,6 @@ help: provide the arguments
     |
 283 |                 let tansfer_gadget = TransferGadget::construct(cb, create.caller_address(), new_address.clone(), 0.expr(), 1.expr(), /* halo2_proofs::plonk::Expression<F> */, /* halo2_proofs::plonk::Expression<F> */, value.clone(), &mut callee_reversion_info);
     |                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-error[E0599]: no method named `address` found for struct `MemoryAddressGadget` in the current scope
-   --> zkevm-circuits/src/evm_circuit/execution/create.rs:304:80
-    |
-304 |         let memory_expansion = MemoryExpansionGadget::construct(cb, [init_code.address()]);
-    |                                                                                ^^^^^^^ method not found in `MemoryAddressGadget<F>`
-    |
-   ::: zkevm-circuits/src/evm_circuit/util/memory_gadget.rs:74:1
-    |
-74  | pub(crate) struct MemoryAddressGadget<F> {
-    | ---------------------------------------- method `address` not found for this struct
-    |
-    = help: items from traits can only be used if the trait is implemented and in scope
-    = note: the following trait defines an item `address`, perhaps you need to implement it:
-            candidate #1: `ethers_signers::Signer`
 
 error[E0599]: no method named `memory_value` found for enum `Rw` in the current scope
    --> zkevm-circuits/src/evm_circuit/execution/create.rs:511:52
@@ -110,5 +80,5 @@ error[E0599]: no method named `assign` found for struct `TransferGadgetImpl` in 
 Some errors have detailed explanations: E0061, E0599.
 For more information about an error, try `rustc --explain E0061`.
 warning: `zkevm-circuits` (lib) generated 13 warnings
-error: could not compile `zkevm-circuits` (lib) due to 5 previous errors; 13 warnings emitted
+error: could not compile `zkevm-circuits` (lib) due to 3 previous errors; 13 warnings emitted
 ```
