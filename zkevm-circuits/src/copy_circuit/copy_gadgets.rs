@@ -161,7 +161,7 @@ pub fn constrain_is_pad<F: Field>(
         is_src_end.expr_at(meta, at, addr, src_addr_end)
     });
     let is_src_end = tmp_c[0].clone();
-    let is_src_end_next = tmp_c[0].clone();
+    let is_src_end_next = tmp_c[1].clone();
 
     cb.condition(is_first, |cb| {
         cb.require_equal(
