@@ -655,7 +655,8 @@ pub(crate) mod rlc {
         }
     }
 
-    #[flux_rs::ignore] // incomplete normalization: invalid deref `<<I as IntoIterator>::IntoIter as Iterator>::Item`
+    #[flux::trusted] // zk-bug-finder modified
+    // #[flux_rs::ignore] // incomplete normalization: invalid deref `<<I as IntoIterator>::IntoIter as Iterator>::Item`
     pub(crate) fn value<'a, F: Field, I>(values: I, randomness: F) -> F
     where
         I: IntoIterator<Item = &'a u8>,

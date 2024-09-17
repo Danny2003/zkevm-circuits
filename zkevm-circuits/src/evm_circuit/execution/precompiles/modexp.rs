@@ -140,8 +140,8 @@ fn assign_word<F: Field, const N: usize>(
     Ok(())
 }
 
-// rlc cells array, in the reversed byte order
-#[flux_rs::ignore] // TODO: closure to_rustc
+#[flux::trusted] // zk-bug-finder modified
+// #[flux_rs::ignore] // TODO: closure to_rustc
 fn rlc_rev<F: Field, const N: usize>(
     cells: &[Cell<F>; N],
     randomness: Expression<F>,

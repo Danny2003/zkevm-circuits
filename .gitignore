@@ -1,4 +1,5 @@
 /target
+.liquid/
 *.png
 .DS_Store
 .vscode

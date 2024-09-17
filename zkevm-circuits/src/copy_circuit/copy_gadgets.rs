@@ -133,8 +133,14 @@ pub fn constrain_is_pad<F: Field>(
     src_addr_end: Column<Advice>,
     is_src_end: &IsEqualConfig<F>,
 ) -> (Expression<F>, Expression<F>) {
-    let [is_pad, is_pad_writer, is_pad_next] =
-        [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(is_pad, at));
+
+    // zk-bug-finder modified
+    // let [is_pad, is_pad_writer, is_pad_next] =
+    //     [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(is_pad, at));
+    let tmp_a = [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(is_pad, at));
+    let is_pad = tmp_a[0].clone();
+    let is_pad_writer = tmp_a[1].clone();
+    let is_pad_next = tmp_a[2].clone();
 
     cb.require_boolean("is_pad is boolean", is_pad.expr());
 
@@ -142,12 +148,20 @@ pub fn constrain_is_pad<F: Field>(
         cb.require_zero("is_pad == 0 on writer rows", is_pad_writer);
     });
 
+    // zk-bug-finder modified
     // Detect when addr == src_addr_end
-    let [is_src_end, is_src_end_next] = [CURRENT, NEXT_STEP].map(|at| {
+    // let [is_src_end, is_src_end_next] = [CURRENT, NEXT_STEP].map(|at| {
+    //     let addr = meta.query_advice(addr, at);
+    //     let src_addr_end = meta.query_advice(src_addr_end, at);
+    //     is_src_end.expr_at(meta, at, addr, src_addr_end)
+    // });
+    let tmp_c = [CURRENT, NEXT_STEP].map(|at| {
         let addr = meta.query_advice(addr, at);
         let src_addr_end = meta.query_advice(src_addr_end, at);
         is_src_end.expr_at(meta, at, addr, src_addr_end)
     });
+    let is_src_end = tmp_c[0].clone();
+    let is_src_end_next = tmp_c[0].clone();
 
     cb.condition(is_first, |cb| {
         cb.require_equal(
@@ -449,8 +463,13 @@ pub fn constrain_bytes_left<F: Field>(
     mask: Expression<F>,
     bytes_left: Column<Advice>,
 ) {
-    let [current, next_row, next_step] =
-        [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(bytes_left, at));
+    // zk-bug-finder modified
+    // let [current, next_row, next_step] =
+    //     [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(bytes_left, at));
+    let tmp_b = [CURRENT, NEXT_ROW, NEXT_STEP].map(|at| meta.query_advice(bytes_left, at));
+    let current = tmp_b[0].clone();
+    let next_row = tmp_b[1].clone();
+    let next_step = tmp_b[2].clone();
 
     // Initial values derived from the event.
     cb.condition(is_first.expr(), |cb| {
