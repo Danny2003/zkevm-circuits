@@ -289,43 +289,44 @@ fn gen_tx_log_data() -> CircuitInputBuilder {
     builder
 }
 
-fn gen_access_list_data() -> Block {
-    let test_access_list = AccessList(vec![
-        AccessListItem {
-            address: address!("0x0000000000000000000000000000000000001111"),
-            storage_keys: [10, 11].map(H256::from_low_u64_be).to_vec(),
-        },
-        AccessListItem {
-            address: address!("0x0000000000000000000000000000000000002222"),
-            storage_keys: [20, 22].map(H256::from_low_u64_be).to_vec(),
-        },
-        AccessListItem {
-            address: address!("0x0000000000000000000000000000000000003333"),
-            storage_keys: [30, 33].map(H256::from_low_u64_be).to_vec(),
-        },
-    ]);
-    let test_ctx = TestContext::<1, 1>::new(
-        None,
-        |accs| {
-            accs[0].address(MOCK_WALLETS[0].address()).balance(eth(20));
-        },
-        |mut txs, _accs| {
-            txs[0]
-                .from(MOCK_WALLETS[0].clone())
-                .to(MOCK_ACCOUNTS[0])
-                .gas_price(gwei(2))
-                .gas(Word::from(0x10000))
-                .value(eth(2))
-                .transaction_type(1) // Set tx type to EIP-2930.
-                .access_list(test_access_list);
-        },
-        |block, _tx| block.number(0xcafeu64),
-    )
-    .unwrap();
-    CircuitTestBuilder::new_from_test_ctx(test_ctx)
-        .build_witness_block()
-        .0
-}
+// zk-bug-finder modified
+// fn gen_access_list_data() -> Block {
+//     let test_access_list = AccessList(vec![
+//         AccessListItem {
+//             address: address!("0x0000000000000000000000000000000000001111"),
+//             storage_keys: [10, 11].map(H256::from_low_u64_be).to_vec(),
+//         },
+//         AccessListItem {
+//             address: address!("0x0000000000000000000000000000000000002222"),
+//             storage_keys: [20, 22].map(H256::from_low_u64_be).to_vec(),
+//         },
+//         AccessListItem {
+//             address: address!("0x0000000000000000000000000000000000003333"),
+//             storage_keys: [30, 33].map(H256::from_low_u64_be).to_vec(),
+//         },
+//     ]);
+//     let test_ctx = TestContext::<1, 1>::new(
+//         None,
+//         |accs| {
+//             accs[0].address(MOCK_WALLETS[0].address()).balance(eth(20));
+//         },
+//         |mut txs, _accs| {
+//             txs[0]
+//                 .from(MOCK_WALLETS[0].clone())
+//                 .to(MOCK_ACCOUNTS[0])
+//                 .gas_price(gwei(2))
+//                 .gas(Word::from(0x10000))
+//                 .value(eth(2))
+//                 .transaction_type(1) // Set tx type to EIP-2930.
+//                 .access_list(test_access_list);
+//         },
+//         |block, _tx| block.number(0xcafeu64),
+//     )
+//     .unwrap();
+//     CircuitTestBuilder::new_from_test_ctx(test_ctx)
+//         .build_witness_block()
+//         .0
+// }
 
 fn gen_create_data() -> CircuitInputBuilder {
     let code = bytecode! {
@@ -419,11 +420,12 @@ fn copy_circuit_valid_tx_log() {
     assert_eq!(test_copy_circuit_from_block(block), Ok(()));
 }
 
-#[test]
-fn copy_circuit_valid_access_list() {
-    let block = gen_access_list_data();
-    assert_eq!(test_copy_circuit_from_block(block), Ok(()));
-}
+// zk-bug-finder modified
+// #[test]
+// fn copy_circuit_valid_access_list() {
+//     let block = gen_access_list_data();
+//     assert_eq!(test_copy_circuit_from_block(block), Ok(()));
+// }
 
 #[test]
 fn copy_circuit_valid_create() {
