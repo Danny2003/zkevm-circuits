@@ -144,6 +144,7 @@ pub(crate) const N_BYTES_CALLDATASIZE: usize = N_BYTES_U64;
 pub(crate) static EXECUTION_STATE_HEIGHT_MAP: LazyLock<HashMap<ExecutionState, usize>> =
     LazyLock::new(get_step_height_map);
 
+#[flux::trusted] // zk-bug-finder modified
 fn get_step_height_map() -> HashMap<ExecutionState, usize> {
     let mut meta = ConstraintSystem::<Fr>::default();
     let circuit = EvmCircuit::configure(&mut meta);
