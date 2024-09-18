@@ -1,26 +1,261 @@
-use crate::{
-    evm_circuit::{
-        param::MAX_N_BYTES_INTEGER,
-        util::{
-            constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
-            math_gadget::*,
-            transpose_val_ret, CachedRegion, Cell, CellType,
-        },
-    },
-    util::{Expr, Field},
-};
-use halo2_proofs::{
-    circuit::Value,
-    plonk::{Error, Expression},
-};
+extern crate flux_rs;
+use flux_rs::extern_spec;
+// use halo2_proofs::plonk::{Selector, FixedQuery, AdviceQuery, InstanceQuery, Challenge};
+// use crate::{
+//     evm_circuit::{
+//         param::MAX_N_BYTES_INTEGER,
+//         util::{
+//             constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
+//             math_gadget::*,
+//             transpose_val_ret, CachedRegion, CellType,
+//         },
+//     },
+//     util::{Expr, Field},
+// };
+// use halo2_proofs::{
+//     circuit::Value,
+//     plonk::Error,
+// };
+
+// use core::ops::{Add, Mul};
+use std::iter::{Product, Sum};
+use std::ops::{Add, Mul, Neg, Sub};
+
+pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
+
+/// This trait represents an element of a field.
+pub trait Field:
+    Sized
+    + Eq
+    + Copy
+    + Clone
+    + Default
+    + Send
+    + Sync
+{
+    /// The zero element of the field, the additive identity.
+    const ZERO: Self;
+
+    /// The one element of the field, the multiplicative identity.
+    const ONE: Self;
+
+}
+
+/// Trait that implements functionality to get a constant expression from
+/// commonly used types.
+pub trait Expr<F: Field> {
+    /// Returns an expression for the type.
+    fn expr(&self) -> Expression<F>;
+}
+
+#[derive(Clone)]
+struct Selector {}
+#[derive(Clone)]
+struct FixedQuery {}
+#[derive(Clone)]
+struct AdviceQuery {}
+#[derive(Clone)]
+struct InstanceQuery {}
+#[derive(Clone)]
+struct Challenge {}
+
+#[derive(Clone)]
+pub enum Expression<F:Field> {
+    /// This is a constant polynomial
+    Constant(F),
+    /// This is a virtual selector
+    Selector(Selector),
+    /// This is a fixed column queried at a certain relative location
+    Fixed(FixedQuery),
+    /// This is an advice (witness) column queried at a certain relative location
+    Advice(AdviceQuery),
+    /// This is an instance (external) column queried at a certain relative location
+    Instance(InstanceQuery),
+    /// This is a challenge
+    Challenge(Challenge),
+    /// This is a negated polynomial
+    Negated(Box<Expression<F>>),
+    /// This is the sum of two polynomials
+    Sum(Box<Expression<F>>, Box<Expression<F>>),
+    /// This is the product of two polynomials
+    Product(Box<Expression<F>>, Box<Expression<F>>),
+    /// This is a scaled polynomial
+    Scaled(Box<Expression<F>>, F),
+}
+
+impl<F: Field> Neg for Expression<F> {
+    type Output = Expression<F>;
+    fn neg(self) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Add for Expression<F> {
+    type Output = Expression<F>;
+    fn add(self, rhs: Expression<F>) -> Expression<F> {
+        // if self.contains_simple_selector() || rhs.contains_simple_selector() {
+        //     panic!("attempted to use a simple selector in an addition");
+        // }
+        unimplemented!()
+    }
+}
+
+
+
+impl<F: Field> Sub for Expression<F> {
+    type Output = Expression<F>;
+    fn sub(self, rhs: Expression<F>) -> Expression<F> {
+        // if self.contains_simple_selector() || rhs.contains_simple_selector() {
+        //     panic!("attempted to use a simple selector in a subtraction");
+        // }
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Mul for Expression<F> {
+    type Output = Expression<F>;
+    fn mul(self, rhs: Expression<F>) -> Expression<F> {
+        // if self.contains_simple_selector() && rhs.contains_simple_selector() {
+        //     panic!("attempted to multiply two expressions containing simple selectors");
+        // }
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Mul<F> for Expression<F> {
+    type Output = Expression<F>;
+    fn mul(self, rhs: F) -> Expression<F> {
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Sum<Self> for Expression<F> {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Product<Self> for Expression<F> {
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        unimplemented!()
+    }
+}
+
+pub(crate) struct Cell<F:Field> {
+    // expression for constraint
+    expression: Expression<F>,
+}
+
+impl<F: Field> Expr<F> for Cell<F> {
+    fn expr(&self) -> Expression<F> {
+        unimplemented!()
+    }
+}
+
+impl<F: Field> Expr<F> for u64 {
+    fn expr(&self) -> Expression<F> {
+        unimplemented!()
+    }
+}
+
+fn query_bytes<F:Field, const N: usize> () -> [Cell<F>; N] {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::trusted]
+fn query_bytes<F:Field, const N_BYTES: usize> () -> [Cell<F>; N_BYTES];
+
+pub(crate) fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+    debug_assert!(
+        bytes.len() <= MAX_N_BYTES_INTEGER,
+        "Too many bytes to compose an integer in field"
+    );
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::trusted]
+fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F>;
+
+/// Requires that the passed in value is within the specified range.
+/// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.
+struct RangeCheckGadget<F:Field, const N_BYTES: usize> {
+    parts: [Cell<F>; N_BYTES],
+}
+
+impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
+    pub(crate) fn construct(value: Expression<F>) -> Self {
+        assert!(N_BYTES <= MAX_N_BYTES_INTEGER);
+        let parts = query_bytes::<F, N_BYTES>();
+
+        // Require that the reconstructed value from the parts equals the
+        // original value
+        require_equal(
+            "Constrain bytes recomposited to value",
+            value,
+            from_bytes_expr(&parts),
+        );
+        unimplemented!()
+    }
+
+    // pub(crate) fn assign(
+    //     &self,
+    //     region: &mut CachedRegion<'_, '_, F>,
+    //     offset: usize,
+    //     value: F,
+    // ) -> Result<(), Error> {
+    //     let bytes = value.to_repr();
+    //     for (idx, part) in self.parts.iter().enumerate() {
+    //         part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
+    //     }
+    //     Ok(())
+    // }
+}
+
+#[extern_spec]
+#[flux::opaque]
+struct RangeCheckGadget<F:Field, const N_BYTES: usize>;
+
+#[extern_spec]
+#[flux::opaque]
+struct Cell<F:Field>;
+
+#[extern_spec]
+#[flux::opaque]
+struct Expression<F:Field>;
+
+fn query_cell_with_type<F:Field> (_cell: &Expression<F>) -> Cell<F> {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::trusted]
+fn query_cell_with_type<F:Field> (cell: &Expression<F>) -> Cell<F>;
+
+fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::trusted]
+fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) -> ();
+
+fn require_equal<F:Field>(name: &'static str, lhs: Expression<F>, rhs: Expression<F>) {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::trusted]
+fn require_equal<F:Field>(name: &'static str, lhs: Expression<F>, rhs: Expression<F>) -> ();
+
 /// Returns (quotient: numerator/denominator, remainder: numerator%denominator),
 /// with `numerator` an expression and `denominator` a constant.
 /// Input requirements:
 /// - `quotient < 256**N_BYTES`
 /// - `quotient * denominator < field size`
 /// - `remainder < denominator` requires a range lookup table for `denominator`
-#[derive(Clone, Debug)]
-pub struct ConstantDivisionGadget<F, const N_BYTES: usize> {
+pub struct ConstantDivisionGadget<F:Field, const N_BYTES: usize> {
     quotient: Cell<F>,
     remainder: Cell<F>,
     denominator: u64,
@@ -29,23 +264,22 @@ pub struct ConstantDivisionGadget<F, const N_BYTES: usize> {
 
 impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
     pub(crate) fn construct(
-        cb: &mut EVMConstraintBuilder<F>,
         numerator: Expression<F>,
         denominator: u64,
     ) -> Self {
         assert!(N_BYTES * 8 + 64 - denominator.leading_zeros() as usize <= MAX_N_BYTES_INTEGER * 8);
-        let quotient = cb.query_cell_with_type(CellType::storage_for_expr(&numerator));
-        let remainder = cb.query_cell_with_type(CellType::storage_for_expr(&numerator));
+        let quotient = query_cell_with_type(&numerator);
+        let remainder = query_cell_with_type(&numerator);
 
         // Require that remainder < denominator
-        cb.range_lookup(remainder.expr(), denominator);
+        range_lookup(remainder.expr(), denominator);
 
         // Require that quotient < 256**N_BYTES
         // so we can't have any overflow when doing `quotient * denominator`.
-        let quotient_range_check = RangeCheckGadget::construct(cb, quotient.expr());
+        let quotient_range_check = RangeCheckGadget::construct(quotient.expr());
 
         // Check if the division was done correctly
-        cb.require_equal(
+        require_equal(
             "numerator - remainder == quotient ⋅ denominator",
             numerator - remainder.expr(),
             quotient.expr() * denominator.expr(),
@@ -67,155 +301,155 @@ impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
         self.remainder.expr()
     }
 
-    pub(crate) fn assign(
-        &self,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
-        numerator: u128,
-    ) -> Result<(u128, u128), Error> {
-        let denominator = self.denominator as u128;
-        let quotient = numerator / denominator;
-        let remainder = numerator % denominator;
+    // pub(crate) fn assign(
+    //     &self,
+    //     region: &mut CachedRegion<'_, '_, F>,
+    //     offset: usize,
+    //     numerator: u128,
+    // ) -> Result<(u128, u128), Error> {
+    //     let denominator = self.denominator as u128;
+    //     let quotient = numerator / denominator;
+    //     let remainder = numerator % denominator;
 
-        self.quotient
-            .assign(region, offset, Value::known(F::from_u128(quotient)))?;
-        self.remainder
-            .assign(region, offset, Value::known(F::from_u128(remainder)))?;
+    //     self.quotient
+    //         .assign(region, offset, Value::known(F::from_u128(quotient)))?;
+    //     self.remainder
+    //         .assign(region, offset, Value::known(F::from_u128(remainder)))?;
 
-        self.quotient_range_check
-            .assign(region, offset, F::from_u128(quotient))?;
+    //     self.quotient_range_check
+    //         .assign(region, offset, F::from_u128(quotient))?;
 
-        Ok((quotient, remainder))
-    }
+    //     Ok((quotient, remainder))
+    // }
 
-    pub(crate) fn assign_value(
-        &self,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
-        numerator: Value<F>,
-    ) -> Result<Value<(u128, u128)>, Error> {
-        transpose_val_ret(
-            numerator.map(|numerator| self.assign(region, offset, numerator.get_lower_128())),
-        )
-    }
+    // pub(crate) fn assign_value(
+    //     &self,
+    //     region: &mut CachedRegion<'_, '_, F>,
+    //     offset: usize,
+    //     numerator: Value<F>,
+    // ) -> Result<Value<(u128, u128)>, Error> {
+    //     transpose_val_ret(
+    //         numerator.map(|numerator| self.assign(region, offset, numerator.get_lower_128())),
+    //     )
+    // }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{test_util::*, *};
-    use crate::util::Field;
-    use eth_types::*;
-    use halo2_proofs::{halo2curves::bn256::Fr, plonk::Error};
+// #[cfg(test)]
+// mod tests {
+//     use super::{test_util::*, *};
+//     use crate::util::Field;
+//     use eth_types::*;
+//     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Error};
 
-    #[derive(Clone)]
-    /// ConstantDivisionTestContainer:
-    /// require(a(N_BYTES) == DENOMINATOR * QUOTIENT + REMAINDER)
-    struct ConstantDivisionTestContainer<
-        F,
-        const N_BYTES: usize,
-        const DENOMINATOR: u64,
-        const QUOTIENT: u64,
-        const REMINDER: u64,
-    > {
-        constdiv_gadget: ConstantDivisionGadget<F, N_BYTES>,
-        a: Cell<F>,
-    }
+//     #[derive(Clone)]
+//     /// ConstantDivisionTestContainer:
+//     /// require(a(N_BYTES) == DENOMINATOR * QUOTIENT + REMAINDER)
+//     struct ConstantDivisionTestContainer<
+//         F,
+//         const N_BYTES: usize,
+//         const DENOMINATOR: u64,
+//         const QUOTIENT: u64,
+//         const REMINDER: u64,
+//     > {
+//         constdiv_gadget: ConstantDivisionGadget<F, N_BYTES>,
+//         a: Cell<F>,
+//     }
 
-    impl<
-            F: Field,
-            const N_BYTES: usize,
-            const DENOMINATOR: u64,
-            const QUOTIENT: u64,
-            const REMAINDER: u64,
-        > MathGadgetContainer<F>
-        for ConstantDivisionTestContainer<F, N_BYTES, DENOMINATOR, QUOTIENT, REMAINDER>
-    {
-        fn configure_gadget_container(cb: &mut EVMConstraintBuilder<F>) -> Self {
-            let a = cb.query_cell();
-            let constdiv_gadget =
-                ConstantDivisionGadget::<F, N_BYTES>::construct(cb, a.expr(), DENOMINATOR);
+//     impl<
+//             F: Field,
+//             const N_BYTES: usize,
+//             const DENOMINATOR: u64,
+//             const QUOTIENT: u64,
+//             const REMAINDER: u64,
+//         > MathGadgetContainer<F>
+//         for ConstantDivisionTestContainer<F, N_BYTES, DENOMINATOR, QUOTIENT, REMAINDER>
+//     {
+//         fn configure_gadget_container(cb: &mut EVMConstraintBuilder<F>) -> Self {
+//             let a = cb.query_cell();
+//             let constdiv_gadget =
+//                 ConstantDivisionGadget::<F, N_BYTES>::construct(cb, a.expr(), DENOMINATOR);
 
-            cb.require_equal(
-                "correct reminder",
-                constdiv_gadget.remainder(),
-                REMAINDER.expr(),
-            );
+//             cb.require_equal(
+//                 "correct reminder",
+//                 constdiv_gadget.remainder(),
+//                 REMAINDER.expr(),
+//             );
 
-            cb.require_equal(
-                "correct quotient",
-                constdiv_gadget.quotient(),
-                QUOTIENT.expr(),
-            );
+//             cb.require_equal(
+//                 "correct quotient",
+//                 constdiv_gadget.quotient(),
+//                 QUOTIENT.expr(),
+//             );
 
-            ConstantDivisionTestContainer { constdiv_gadget, a }
-        }
+//             ConstantDivisionTestContainer { constdiv_gadget, a }
+//         }
 
-        fn assign_gadget_container(
-            &self,
-            witnesses: &[Word],
-            region: &mut CachedRegion<'_, '_, F>,
-        ) -> Result<(), Error> {
-            let a = u64::from_le_bytes(witnesses[0].to_le_bytes()[..8].try_into().unwrap());
-            let offset = 0;
+//         fn assign_gadget_container(
+//             &self,
+//             witnesses: &[Word],
+//             region: &mut CachedRegion<'_, '_, F>,
+//         ) -> Result<(), Error> {
+//             let a = u64::from_le_bytes(witnesses[0].to_le_bytes()[..8].try_into().unwrap());
+//             let offset = 0;
 
-            self.a.assign(region, offset, Value::known(F::from(a)))?;
-            self.constdiv_gadget.assign(region, offset, a as u128)?;
+//             self.a.assign(region, offset, Value::known(F::from(a)))?;
+//             self.constdiv_gadget.assign(region, offset, a as u128)?;
 
-            Ok(())
-        }
-    }
+//             Ok(())
+//         }
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_0div5_rem0() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 5, 0, 0>,
-            [Word::from(0)],
-            true,
-        );
-    }
+//     #[test]
+//     fn test_constantdivisiongadget_0div5_rem0() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 5, 0, 0>,
+//             [Word::from(0)],
+//             true,
+//         );
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_5div5_rem0() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 5, 1, 0>,
-            [Word::from(5)],
-            true,
-        );
-    }
+//     #[test]
+//     fn test_constantdivisiongadget_5div5_rem0() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 5, 1, 0>,
+//             [Word::from(5)],
+//             true,
+//         );
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_1div5_rem1() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 5, 0, 1>,
-            [Word::from(1)],
-            true,
-        );
-    }
+//     #[test]
+//     fn test_constantdivisiongadget_1div5_rem1() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 5, 0, 1>,
+//             [Word::from(1)],
+//             true,
+//         );
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_1div5_rem4() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 5, 1, 4>,
-            [Word::from(1)],
-            false,
-        );
-    }
+//     #[test]
+//     fn test_constantdivisiongadget_1div5_rem4() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 5, 1, 4>,
+//             [Word::from(1)],
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_quotient_overflow() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 5, 4294967296u64, 1>,
-            [Word::from(1u64 << (4 * 8)) * 5 + 1],
-            false,
-        );
-    }
+//     #[test]
+//     fn test_constantdivisiongadget_quotient_overflow() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 5, 4294967296u64, 1>,
+//             [Word::from(1u64 << (4 * 8)) * 5 + 1],
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn test_constantdivisiongadget_33_div16_rem17() {
-        try_test!(
-            ConstantDivisionTestContainer<Fr, 4, 16, 1, 17>,
-            [Word::from(33)],
-            false,
-        );
-    }
-}
+//     #[test]
+//     fn test_constantdivisiongadget_33_div16_rem17() {
+//         try_test!(
+//             ConstantDivisionTestContainer<Fr, 4, 16, 1, 17>,
+//             [Word::from(33)],
+//             false,
+//         );
+//     }
+// }
