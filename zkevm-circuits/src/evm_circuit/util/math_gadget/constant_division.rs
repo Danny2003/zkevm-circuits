@@ -23,6 +23,27 @@ use std::ops::{Add, Mul, Neg, Sub};
 
 pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
 
+/// predicates
+fn pow_of_256(n: usize) -> u64 {
+    unimplemented!()
+}
+
+fn interp<F:Field> (_expr: Expression<F>) -> F {
+    unimplemented!()
+}
+
+fn pow_of_two(n: u64) -> u64 {
+    unimplemented!()
+}
+
+// What should be **nat** in these predicates? Is it competible with SMT and flux?
+//   - bytes_f: F -> nat | should be SMT-encodable
+//   - bytes_u64: u64 -> nat | should be SMT-encodable
+//   - get: Cell<F> -> F | ??
+//   - ok: F -> bool = \x. bytes_f(x) <= MAX_N_BYTES_INTEGER | should be SMT-encodable
+//   - u64_to_f: u64 -> F | should be SMT-encodable
+/// end predicates
+
 /// This trait represents an element of a field.
 pub trait Field:
     Sized
@@ -83,63 +104,21 @@ pub enum Expression<F:Field> {
     Scaled(Box<Expression<F>>, F),
 }
 
-impl<F: Field> Neg for Expression<F> {
-    type Output = Expression<F>;
-    fn neg(self) -> Self::Output {
-        unimplemented!()
-    }
+fn expression_sub<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F> {
+    unimplemented!()
 }
 
-impl<F: Field> Add for Expression<F> {
-    type Output = Expression<F>;
-    fn add(self, rhs: Expression<F>) -> Expression<F> {
-        // if self.contains_simple_selector() || rhs.contains_simple_selector() {
-        //     panic!("attempted to use a simple selector in an addition");
-        // }
-        unimplemented!()
-    }
+#[extern_spec]
+#[flux::sig(fn<F>(Expression<F>[@lhs], Expression<F>[@rhs]) -> Expression<F>{v: interp(v) == interp(self) - interp(rhs)})]
+fn expression_sub<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F>;
+
+fn expression_mul<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F> {
+    unimplemented!()
 }
 
-
-
-impl<F: Field> Sub for Expression<F> {
-    type Output = Expression<F>;
-    fn sub(self, rhs: Expression<F>) -> Expression<F> {
-        // if self.contains_simple_selector() || rhs.contains_simple_selector() {
-        //     panic!("attempted to use a simple selector in a subtraction");
-        // }
-        unimplemented!()
-    }
-}
-
-impl<F: Field> Mul for Expression<F> {
-    type Output = Expression<F>;
-    fn mul(self, rhs: Expression<F>) -> Expression<F> {
-        // if self.contains_simple_selector() && rhs.contains_simple_selector() {
-        //     panic!("attempted to multiply two expressions containing simple selectors");
-        // }
-        unimplemented!()
-    }
-}
-
-impl<F: Field> Mul<F> for Expression<F> {
-    type Output = Expression<F>;
-    fn mul(self, rhs: F) -> Expression<F> {
-        unimplemented!()
-    }
-}
-
-impl<F: Field> Sum<Self> for Expression<F> {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        unimplemented!()
-    }
-}
-
-impl<F: Field> Product<Self> for Expression<F> {
-    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        unimplemented!()
-    }
-}
+#[extern_spec]
+#[flux::sig(fn<F>(Expression<F>[@lhs], Expression<F>[@rhs]) -> Expression<F>{v: interp(v) == interp(self) * interp(rhs)})]
+fn expression_mul<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F>;
 
 pub(crate) struct Cell<F:Field> {
     // expression for constraint
@@ -158,13 +137,14 @@ impl<F: Field> Expr<F> for u64 {
     }
 }
 
-fn query_bytes<F:Field, const N: usize> () -> [Cell<F>; N] {
+fn query_bytes<F:Field, const N_BYTES: usize>() -> [Cell<F>; N_BYTES] {
     unimplemented!()
 }
 
 #[extern_spec]
 #[flux::trusted]
-fn query_bytes<F:Field, const N_BYTES: usize> () -> [Cell<F>; N_BYTES];
+// #[flux::sig(fn<F>() -> [Cell<F>; 31])]
+fn query_bytes<F:Field, const N_BYTES: usize>() -> [Cell<F>; N_BYTES];
 
 pub(crate) fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
     debug_assert!(
@@ -177,41 +157,6 @@ pub(crate) fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F
 #[extern_spec]
 #[flux::trusted]
 fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F>;
-
-/// Requires that the passed in value is within the specified range.
-/// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.
-struct RangeCheckGadget<F:Field, const N_BYTES: usize> {
-    parts: [Cell<F>; N_BYTES],
-}
-
-impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
-    pub(crate) fn construct(value: Expression<F>) -> Self {
-        assert!(N_BYTES <= MAX_N_BYTES_INTEGER);
-        let parts = query_bytes::<F, N_BYTES>();
-
-        // Require that the reconstructed value from the parts equals the
-        // original value
-        require_equal(
-            "Constrain bytes recomposited to value",
-            value,
-            from_bytes_expr(&parts),
-        );
-        unimplemented!()
-    }
-
-    // pub(crate) fn assign(
-    //     &self,
-    //     region: &mut CachedRegion<'_, '_, F>,
-    //     offset: usize,
-    //     value: F,
-    // ) -> Result<(), Error> {
-    //     let bytes = value.to_repr();
-    //     for (idx, part) in self.parts.iter().enumerate() {
-    //         part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
-    //     }
-    //     Ok(())
-    // }
-}
 
 #[extern_spec]
 #[flux::opaque]
@@ -237,17 +182,57 @@ fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) {
     unimplemented!()
 }
 
+// How should we define interp and pow_of_two to eliminate the 'not found in this scope' errors?
+// How should we define the change of types or additonal assertions? Is the following way correct?
 #[extern_spec]
-#[flux::trusted]
+#[flux::sig(fn<F>(Expression<F>[@cell], u64[@denominator]) -> {() | interp(cell) < pow_of_two(denominator)})]
 fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) -> ();
 
-fn require_equal<F:Field>(name: &'static str, lhs: Expression<F>, rhs: Expression<F>) {
+fn require_equal<F:Field>(name: &str, lhs: Expression<F>, rhs: Expression<F>) {
     unimplemented!()
 }
 
 #[extern_spec]
-#[flux::trusted]
-fn require_equal<F:Field>(name: &'static str, lhs: Expression<F>, rhs: Expression<F>) -> ();
+#[flux::sig(fn<F>(&str, Expression<F>[@lhs], Expression<F>[@rhs]) -> {() | lhs == rhs})]
+fn require_equal<F:Field>(name: &str, lhs: Expression<F>, rhs: Expression<F>) -> ();
+
+/// Requires that the passed in value is within the specified range.
+/// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.
+struct RangeCheckGadget<F:Field, const N_BYTES: usize> {
+    parts: [Cell<F>; N_BYTES],
+}
+
+fn RangeCheckGadget_construct<F: Field, const N_BYTES: usize>(value: Expression<F>) -> RangeCheckGadget<F, N_BYTES> {
+    assert!(N_BYTES <= MAX_N_BYTES_INTEGER);
+    let parts: [Cell<F>; N_BYTES] = query_bytes::<F, N_BYTES>();
+
+    // Require that the reconstructed value from the parts equals the
+    // original value
+    require_equal(
+        "Constrain bytes recomposited to value",
+        value,
+        from_bytes_expr(&parts),
+    );
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::sig(fn<F, N_BYTES>(Expression<F>[@value]) -> ({RangeCheckGadget<F, N_BYTES> | interp(value) < pow_of_256(N_BYTES * 8) }) )]
+fn RangeCheckGadget_construct<F:Field, const N_BYTES: usize>(value: Expression<F>)
+    -> RangeCheckGadget<F, { N_BYTES }>;
+
+    // pub(crate) fn assign(
+    //     &self,
+    //     region: &mut CachedRegion<'_, '_, F>,
+    //     offset: usize,
+    //     value: F,
+    // ) -> Result<(), Error> {
+    //     let bytes = value.to_repr();
+    //     for (idx, part) in self.parts.iter().enumerate() {
+    //         part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
+    //     }
+    //     Ok(())
+    // }
 
 /// Returns (quotient: numerator/denominator, remainder: numerator%denominator),
 /// with `numerator` an expression and `denominator` a constant.
@@ -263,9 +248,11 @@ pub struct ConstantDivisionGadget<F:Field, const N_BYTES: usize> {
 }
 
 impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
+    // #[flux::sig(fn<F>({Expression<F>[@numerator] | ok(interp(numerator))},
+    //     { u64[@denominator] | ok(u64_to_f(numerator)) < 8}) -> ...)]
     pub(crate) fn construct(
-        numerator: Expression<F>,
-        denominator: u64,
+        numerator: Expression<F>, // numerator: {v | vbit(v)==256}
+        denominator: u64, // denominator: {v | vbit(v)==64}
     ) -> Self {
         assert!(N_BYTES * 8 + 64 - denominator.leading_zeros() as usize <= MAX_N_BYTES_INTEGER * 8);
         let quotient = query_cell_with_type(&numerator);
@@ -276,13 +263,13 @@ impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
 
         // Require that quotient < 256**N_BYTES
         // so we can't have any overflow when doing `quotient * denominator`.
-        let quotient_range_check = RangeCheckGadget::construct(quotient.expr());
+        let quotient_range_check = RangeCheckGadget_construct(quotient.expr());
 
         // Check if the division was done correctly
         require_equal(
             "numerator - remainder == quotient ⋅ denominator",
-            numerator - remainder.expr(),
-            quotient.expr() * denominator.expr(),
+            expression_sub::<F>(numerator, remainder.expr()),
+            expression_mul::<F>(quotient.expr(), denominator.expr()),
         );
 
         Self {
