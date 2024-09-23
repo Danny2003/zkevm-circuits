@@ -49,7 +49,7 @@ pub struct EcrecoverGadget<F> {
     msg_hash_raw: Word<F>,
     msg_hash: Word<F>,
     fq_modulus: Word<F>,
-    msg_hash_mod: ModGadget<F, true>,
+    msg_hash_mod: ModGadget<F>,
 
     sig_r: Word<F>,
     sig_r_canonical: LtWordGadget<F>,

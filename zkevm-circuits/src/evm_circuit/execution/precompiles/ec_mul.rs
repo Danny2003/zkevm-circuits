@@ -73,7 +73,7 @@ pub struct EcMulGadget<F> {
     scalar_s_raw: Word<F>, // raw
     scalar_s: Word<F>,     // mod by Fr::MODULUS
     fr_modulus: Word<F>,   // Fr::MODULUS
-    modword: ModGadget<F, false>,
+    modword: ModGadget<F>,
 
     is_success: Cell<F>,
     callee_address: Cell<F>,
