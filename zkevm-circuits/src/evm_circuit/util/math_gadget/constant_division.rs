@@ -1,50 +1,7 @@
 extern crate flux_rs;
 use flux_rs::extern_spec;
-// use halo2_proofs::plonk::{Selector, FixedQuery, AdviceQuery, InstanceQuery, Challenge};
-// use crate::{
-//     evm_circuit::{
-//         param::MAX_N_BYTES_INTEGER,
-//         util::{
-//             constraint_builder::{ConstrainBuilderCommon, EVMConstraintBuilder},
-//             math_gadget::*,
-//             transpose_val_ret, CachedRegion, CellType,
-//         },
-//     },
-//     util::{Expr, Field},
-// };
-// use halo2_proofs::{
-//     circuit::Value,
-//     plonk::Error,
-// };
 
-// use core::ops::{Add, Mul};
-use std::iter::{Product, Sum};
-use std::ops::{Add, Mul, Neg, Sub};
-
-pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
-
-/// predicates
-fn pow_of_256(n: usize) -> u64 {
-    unimplemented!()
-}
-
-fn interp<F:Field> (_expr: Expression<F>) -> F {
-    unimplemented!()
-}
-
-fn pow_of_two(n: u64) -> u64 {
-    unimplemented!()
-}
-
-// What should be **nat** in these predicates? Is it competible with SMT and flux?
-//   - bytes_f: F -> nat | should be SMT-encodable
-//   - bytes_u64: u64 -> nat | should be SMT-encodable
-//   - get: Cell<F> -> F | ??
-//   - ok: F -> bool = \x. bytes_f(x) <= MAX_N_BYTES_INTEGER | should be SMT-encodable
-//   - u64_to_f: u64 -> F | should be SMT-encodable
-/// end predicates
-
-/// This trait represents an element of a field.
+// copied
 pub trait Field:
     Sized
     + Eq
@@ -59,14 +16,7 @@ pub trait Field:
 
     /// The one element of the field, the multiplicative identity.
     const ONE: Self;
-
-}
-
-/// Trait that implements functionality to get a constant expression from
-/// commonly used types.
-pub trait Expr<F: Field> {
-    /// Returns an expression for the type.
-    fn expr(&self) -> Expression<F>;
+    // omit other methods for simplicity
 }
 
 #[derive(Clone)]
@@ -81,7 +31,8 @@ struct InstanceQuery {}
 struct Challenge {}
 
 #[derive(Clone)]
-pub enum Expression<F:Field> {
+// modified version of Expression
+enum Expression<F:Field> {
     /// This is a constant polynomial
     Constant(F),
     /// This is a virtual selector
@@ -104,135 +55,929 @@ pub enum Expression<F:Field> {
     Scaled(Box<Expression<F>>, F),
 }
 
-fn expression_sub<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F> {
-    unimplemented!()
-}
-
-#[extern_spec]
-#[flux::sig(fn<F>(Expression<F>[@lhs], Expression<F>[@rhs]) -> Expression<F>{v: interp(v) == interp(self) - interp(rhs)})]
-fn expression_sub<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F>;
-
-fn expression_mul<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F> {
-    unimplemented!()
-}
-
-#[extern_spec]
-#[flux::sig(fn<F>(Expression<F>[@lhs], Expression<F>[@rhs]) -> Expression<F>{v: interp(v) == interp(self) * interp(rhs)})]
-fn expression_mul<F: Field>(lhs: Expression<F>, rhs: Expression<F>) -> Expression<F>;
-
-pub(crate) struct Cell<F:Field> {
-    // expression for constraint
+// I have to define the following fake implementations to eliminate the 'not found in this scope' errors.
+#[derive(Clone)]
+pub struct AbExpression<F:Field> {
     expression: Expression<F>,
 }
 
-impl<F: Field> Expr<F> for Cell<F> {
-    fn expr(&self) -> Expression<F> {
+impl<F:Field> AbExpression<F> {
+    pub fn new() -> AbExpression<F> {
+        unimplemented!()
+    }
+    fn len(s: &AbExpression<F>) -> usize {
         unimplemented!()
     }
 }
 
-impl<F: Field> Expr<F> for u64 {
-    fn expr(&self) -> Expression<F> {
+#[extern_spec]
+#[flux::refined_by(len: int)]
+struct AbExpression<F:Field>;
+
+#[extern_spec]
+impl<F:Field> AbExpression<F> {
+    #[flux::sig(fn() -> AbExpression<F>[256])]
+    fn new() -> AbExpression<F>;
+
+    #[flux::sig(fn(&AbExpression<F>[@n]) -> usize[n])]
+    fn len(s: &AbExpression<F>) -> usize;
+}
+
+fn expression_sub<F: Field>(lhs: AbExpression<F>, rhs: AbExpression<F>) -> AbExpression<F> {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::sig(fn<F>(AbExpression<F>[@n], AbExpression<F>[@m]) -> AbExpression<F>[n])]
+fn expression_sub<F: Field>(lhs: AbExpression<F>, rhs: AbExpression<F>) -> AbExpression<F>;
+
+fn expression_mul<F: Field>(lhs: AbExpression<F>, rhs: AbExpression<F>) -> AbExpression<F> {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::sig(fn<F>(AbExpression<F>[@n], AbExpression<F>[@m]) -> {AbExpression<F>[m + n] | m + n <= 256})]
+fn expression_mul<F: Field>(lhs: AbExpression<F>, rhs: AbExpression<F>) -> AbExpression<F>;
+
+
+#[derive(Clone)]
+struct Cell<F:Field> {
+    expression: AbExpression<F>,
+}
+
+impl <F:Field> Cell<F> {
+    fn new() -> Cell<F> {
+        unimplemented!()
+    }
+    fn len(s: &Cell<F>) -> usize {
+        unimplemented!()
+    }
+    fn expr(&self) -> AbExpression<F> {
         unimplemented!()
     }
 }
 
-fn query_bytes<F:Field, const N_BYTES: usize>() -> [Cell<F>; N_BYTES] {
-    unimplemented!()
-}
-
 #[extern_spec]
-#[flux::trusted]
-// #[flux::sig(fn<F>() -> [Cell<F>; 31])]
-fn query_bytes<F:Field, const N_BYTES: usize>() -> [Cell<F>; N_BYTES];
-
-pub(crate) fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
-    debug_assert!(
-        bytes.len() <= MAX_N_BYTES_INTEGER,
-        "Too many bytes to compose an integer in field"
-    );
-    unimplemented!()
-}
-
-#[extern_spec]
-#[flux::trusted]
-fn from_bytes_expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F>;
-
-#[extern_spec]
-#[flux::opaque]
-struct RangeCheckGadget<F:Field, const N_BYTES: usize>;
-
-#[extern_spec]
-#[flux::opaque]
+#[flux::refined_by(len: int)]
 struct Cell<F:Field>;
 
 #[extern_spec]
-#[flux::opaque]
-struct Expression<F:Field>;
+impl<F:Field> Cell<F> {
+    #[flux::sig(fn() -> Cell<F>[256])]
+    fn new() -> Cell<F>;
 
-fn query_cell_with_type<F:Field> (_cell: &Expression<F>) -> Cell<F> {
+    #[flux::sig(fn(&Cell<F>[@n]) -> usize[n])]
+    fn len(s: &Cell<F>) -> usize;
+
+    #[flux::sig(fn(&Cell<F>[@n]) -> AbExpression<F>[n])]
+    fn expr(&self) -> AbExpression<F>;
+}
+
+fn query_cell_with_type<F:Field> (MAX_N_BYTES_INTEGER: usize, _cell: &AbExpression<F>) -> Cell<F> {
     unimplemented!()
 }
 
 #[extern_spec]
-#[flux::trusted]
-fn query_cell_with_type<F:Field> (cell: &Expression<F>) -> Cell<F>;
+#[flux::sig(fn<F>(usize[@n], &AbExpression<F>) -> Cell<F>[if (8 * n < 256) { 8 * n } else { 256 }])]
+fn query_cell_with_type<F:Field> (MAX_N_BYTES_INTEGER: usize, cell: &AbExpression<F>) -> Cell<F>;
 
-fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) {
+fn range_lookup<F:Field> (_cell: &AbExpression<F>, _denominator: u64) {
     unimplemented!()
 }
 
-// How should we define interp and pow_of_two to eliminate the 'not found in this scope' errors?
-// How should we define the change of types or additonal assertions? Is the following way correct?
-#[extern_spec]
-#[flux::sig(fn<F>(Expression<F>[@cell], u64[@denominator]) -> {() | interp(cell) < pow_of_two(denominator)})]
-fn range_lookup<F:Field> (_cell: Expression<F>, _denominator: u64) -> ();
+fn leading_zeros_u64(value_: u64) -> u64 {
+    if value_ >= 9223372036854775808 {
+        0
+    } else { 
+    if value_ >= 4611686018427387904 {
+        1
+    } else {
+    if value_ >= 2305843009213693952 {
+        2
+    } else { 
+    if value_ >= 1152921504606846976 {
+        3
+    } else { 
+    if value_ >= 576460752303423488 {
+        4
+    } else { 
+    if value_ >= 288230376151711744 {
+        5
+    } else { 
+    if value_ >= 144115188075855872 {
+        6
+    } else { 
+    if value_ >= 72057594037927936 {
+        7
+    } else { 
+    if value_ >= 36028797018963968 {
+        8
+    } else { 
+    if value_ >= 18014398509481984 {
+        9
+    } else { 
+    if value_ >= 9007199254740992 {
+        10
+    } else { 
+    if value_ >= 4503599627370496 {
+        11
+    } else { 
+    if value_ >= 2251799813685248 {
+        12
+    } else { 
+    if value_ >= 1125899906842624 {
+        13
+    } else { 
+    if value_ >= 562949953421312 {
+        14
+    } else { 
+    if value_ >= 281474976710656 {
+        15
+    } else { 
+    if value_ >= 140737488355328 {
+        16
+    } else { 
+    if value_ >= 70368744177664 {
+        17
+    } else { 
+    if value_ >= 35184372088832 {
+        18
+    } else { 
+    if value_ >= 17592186044416 {
+        19
+    } else { 
+    if value_ >= 8796093022208 {
+        20
+    } else { 
+    if value_ >= 4398046511104 {
+        21
+    } else { 
+    if value_ >= 2199023255552 {
+        22
+    } else { 
+    if value_ >= 1099511627776 {
+        23
+    } else { 
+    if value_ >= 549755813888 {
+        24
+    } else { 
+    if value_ >= 274877906944 {
+        25
+    } else { 
+    if value_ >= 137438953472 {
+        26
+    } else { 
+    if value_ >= 68719476736 {
+        27
+    } else { 
+    if value_ >= 34359738368 {
+        28
+    } else { 
+    if value_ >= 17179869184 {
+        29
+    } else { 
+    if value_ >= 8589934592 {
+        30
+    } else { 
+    if value_ >= 4294967296 {
+        31
+    } else { 
+    if value_ >= 2147483648 {
+        32
+    } else { 
+    if value_ >= 1073741824 {
+        33
+    } else { 
+    if value_ >= 536870912 {
+        34
+    } else { 
+    if value_ >= 268435456 {
+        35
+    } else { 
+    if value_ >= 134217728 {
+        36
+    } else { 
+    if value_ >= 67108864 {
+        37
+    } else { 
+    if value_ >= 33554432 {
+        38
+    } else { 
+    if value_ >= 16777216 {
+        39
+    } else { 
+    if value_ >= 8388608 {
+        40
+    } else { 
+    if value_ >= 4194304 {
+        41
+    } else { 
+    if value_ >= 2097152 {
+        42
+    } else { 
+    if value_ >= 1048576 {
+        43
+    } else { 
+    if value_ >= 524288 {
+        44
+    } else { 
+    if value_ >= 262144 {
+        45
+    } else { 
+    if value_ >= 131072 {
+        46
+    } else { 
+    if value_ >= 65536 {
+        47
+    } else { 
+    if value_ >= 32768 {
+        48
+    } else { 
+    if value_ >= 16384 {
+        49
+    } else { 
+    if value_ >= 8192 {
+        50
+    } else { 
+    if value_ >= 4096 {
+        51
+    } else { 
+    if value_ >= 2048 {
+        52
+    } else { 
+    if value_ >= 1024 {
+        53
+    } else { 
+    if value_ >= 512 {
+        54
+    } else { 
+    if value_ >= 256 {
+        55
+    } else { 
+    if value_ >= 128 {
+        56
+    } else { 
+    if value_ >= 64 {
+        57
+    } else { 
+    if value_ >= 32 {
+        58
+    } else { 
+    if value_ >= 16 {
+        59
+    } else { 
+    if value_ >= 8 {
+        60
+    } else { 
+    if value_ >= 4 {
+        61
+    } else { 
+    if value_ >= 2 {
+        62
+    } else { 
+    if value_ >= 1 {
+        63
+    } else {
+        64
+    } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+}
 
-fn require_equal<F:Field>(name: &str, lhs: Expression<F>, rhs: Expression<F>) {
+#[extern_spec]
+#[flux::sig(fn<F>(&AbExpression<F>[@n], u64[@denominator]) -> {() | n <= (64 - 
+    if (denominator >= 9223372036854775808) {
+        0
+    } else { 
+    if (denominator >= 4611686018427387904) {
+        1
+    } else {
+    if (denominator >= 2305843009213693952) {
+        2
+    } else { 
+    if (denominator >= 1152921504606846976) {
+        3
+    } else { 
+    if (denominator >= 576460752303423488) {
+        4
+    } else { 
+    if (denominator >= 288230376151711744) {
+        5
+    } else { 
+    if (denominator >= 144115188075855872) {
+        6
+    } else { 
+    if (denominator >= 72057594037927936) {
+        7
+    } else { 
+    if (denominator >= 36028797018963968) {
+        8
+    } else { 
+    if (denominator >= 18014398509481984) {
+        9
+    } else { 
+    if (denominator >= 9007199254740992) {
+        10
+    } else { 
+    if (denominator >= 4503599627370496) {
+        11
+    } else { 
+    if (denominator >= 2251799813685248) {
+        12
+    } else { 
+    if (denominator >= 1125899906842624) {
+        13
+    } else { 
+    if (denominator >= 562949953421312) {
+        14
+    } else { 
+    if (denominator >= 281474976710656) {
+        15
+    } else { 
+    if (denominator >= 140737488355328) {
+        16
+    } else { 
+    if (denominator >= 70368744177664) {
+        17
+    } else { 
+    if (denominator >= 35184372088832) {
+        18
+    } else { 
+    if (denominator >= 17592186044416) {
+        19
+    } else { 
+    if (denominator >= 8796093022208) {
+        20
+    } else { 
+    if (denominator >= 4398046511104) {
+        21
+    } else { 
+    if (denominator >= 2199023255552) {
+        22
+    } else { 
+    if (denominator >= 1099511627776) {
+        23
+    } else { 
+    if (denominator >= 549755813888) {
+        24
+    } else { 
+    if (denominator >= 274877906944) {
+        25
+    } else { 
+    if (denominator >= 137438953472) {
+        26
+    } else { 
+    if (denominator >= 68719476736) {
+        27
+    } else { 
+    if (denominator >= 34359738368) {
+        28
+    } else { 
+    if (denominator >= 17179869184) {
+        29
+    } else { 
+    if (denominator >= 8589934592) {
+        30
+    } else { 
+    if (denominator >= 4294967296) {
+        31
+    } else { 
+    if (denominator >= 2147483648) {
+        32
+    } else { 
+    if (denominator >= 1073741824) {
+        33
+    } else { 
+    if (denominator >= 536870912) {
+        34
+    } else { 
+    if (denominator >= 268435456) {
+        35
+    } else { 
+    if (denominator >= 134217728) {
+        36
+    } else { 
+    if (denominator >= 67108864) {
+        37
+    } else { 
+    if (denominator >= 33554432) {
+        38
+    } else { 
+    if (denominator >= 16777216) {
+        39
+    } else { 
+    if (denominator >= 8388608) {
+        40
+    } else { 
+    if (denominator >= 4194304) {
+        41
+    } else { 
+    if (denominator >= 2097152) {
+        42
+    } else { 
+    if (denominator >= 1048576) {
+        43
+    } else { 
+    if (denominator >= 524288) {
+        44
+    } else { 
+    if (denominator >= 262144) {
+        45
+    } else { 
+    if (denominator >= 131072) {
+        46
+    } else { 
+    if (denominator >= 65536) {
+        47
+    } else { 
+    if (denominator >= 32768) {
+        48
+    } else { 
+    if (denominator >= 16384) {
+        49
+    } else { 
+    if (denominator >= 8192) {
+        50
+    } else { 
+    if (denominator >= 4096) {
+        51
+    } else { 
+    if (denominator >= 2048) {
+        52
+    } else { 
+    if (denominator >= 1024) {
+        53
+    } else { 
+    if (denominator >= 512) {
+        54
+    } else { 
+    if (denominator >= 256) {
+        55
+    } else { 
+    if (denominator >= 128) {
+        56
+    } else { 
+    if (denominator >= 64) {
+        57
+    } else { 
+    if (denominator >= 32) {
+        58
+    } else { 
+    if (denominator >= 16) {
+        59
+    } else { 
+    if (denominator >= 8) {
+        60
+    } else { 
+    if (denominator >= 4) {
+        61
+    } else { 
+    if (denominator >= 2) {
+        62
+    } else { 
+    if (denominator >= 1) {
+        63
+    } else {
+        64
+    } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+)})]
+fn range_lookup<F:Field> (_cell: &AbExpression<F>, _denominator: u64) -> ();
+
+fn require_equal<F:Field>(name: &str, lhs: AbExpression<F>, rhs: AbExpression<F>) {
     unimplemented!()
 }
 
 #[extern_spec]
-#[flux::sig(fn<F>(&str, Expression<F>[@lhs], Expression<F>[@rhs]) -> {() | lhs == rhs})]
-fn require_equal<F:Field>(name: &str, lhs: Expression<F>, rhs: Expression<F>) -> ();
+#[flux::sig(fn<F>(&str, lhs: AbExpression<F>[@n], rhs: {AbExpression<F>[@m] | m <= n}) -> ())]
+fn require_equal<F:Field>(name: &str, lhs: AbExpression<F>, rhs: AbExpression<F>) -> ();
 
 /// Requires that the passed in value is within the specified range.
 /// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.
-struct RangeCheckGadget<F:Field, const N_BYTES: usize> {
-    parts: [Cell<F>; N_BYTES],
+struct RangeCheckGadget<F:Field> {
+    parts: [Cell<F>; 31],
 }
 
-fn RangeCheckGadget_construct<F: Field, const N_BYTES: usize>(value: Expression<F>) -> RangeCheckGadget<F, N_BYTES> {
-    assert!(N_BYTES <= MAX_N_BYTES_INTEGER);
-    let parts: [Cell<F>; N_BYTES] = query_bytes::<F, N_BYTES>();
-
-    // Require that the reconstructed value from the parts equals the
-    // original value
-    require_equal(
-        "Constrain bytes recomposited to value",
-        value,
-        from_bytes_expr(&parts),
-    );
+fn RangeCheckGadget_construct<F: Field>(MAX_N_BYTES_INTEGER: usize, value: &AbExpression<F>) -> RangeCheckGadget<F> {
+    assert!(31 <= MAX_N_BYTES_INTEGER);
     unimplemented!()
 }
 
 #[extern_spec]
-#[flux::sig(fn<F, N_BYTES>(Expression<F>[@value]) -> ({RangeCheckGadget<F, N_BYTES> | interp(value) < pow_of_256(N_BYTES * 8) }) )]
-fn RangeCheckGadget_construct<F:Field, const N_BYTES: usize>(value: Expression<F>)
-    -> RangeCheckGadget<F, { N_BYTES }>;
+#[flux::sig(fn<F>(usize[@MAX_N_BYTES_INTEGER], &AbExpression<F>[@n]) -> ({RangeCheckGadget<F> | 31 <= MAX_N_BYTES_INTEGER &&
+    n <= 31 * 8
+}))]
+fn RangeCheckGadget_construct<F:Field>(MAX_N_BYTES_INTEGER: usize, value: &AbExpression<F>)
+    -> RangeCheckGadget<F>;
 
-    // pub(crate) fn assign(
-    //     &self,
-    //     region: &mut CachedRegion<'_, '_, F>,
-    //     offset: usize,
-    //     value: F,
-    // ) -> Result<(), Error> {
-    //     let bytes = value.to_repr();
-    //     for (idx, part) in self.parts.iter().enumerate() {
-    //         part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
-    //     }
-    //     Ok(())
-    // }
+fn expr_u64<F:Field> (value: u64) -> AbExpression<F> {
+    unimplemented!()
+}
+
+#[extern_spec]
+#[flux::sig(fn<F>(u64[@denominator]) -> AbExpression<F>[ 64 - 
+    if (denominator >= 9223372036854775808) {
+        0
+    } else { 
+    if (denominator >= 4611686018427387904) {
+        1
+    } else {
+    if (denominator >= 2305843009213693952) {
+        2
+    } else { 
+    if (denominator >= 1152921504606846976) {
+        3
+    } else { 
+    if (denominator >= 576460752303423488) {
+        4
+    } else { 
+    if (denominator >= 288230376151711744) {
+        5
+    } else { 
+    if (denominator >= 144115188075855872) {
+        6
+    } else { 
+    if (denominator >= 72057594037927936) {
+        7
+    } else { 
+    if (denominator >= 36028797018963968) {
+        8
+    } else { 
+    if (denominator >= 18014398509481984) {
+        9
+    } else { 
+    if (denominator >= 9007199254740992) {
+        10
+    } else { 
+    if (denominator >= 4503599627370496) {
+        11
+    } else { 
+    if (denominator >= 2251799813685248) {
+        12
+    } else { 
+    if (denominator >= 1125899906842624) {
+        13
+    } else { 
+    if (denominator >= 562949953421312) {
+        14
+    } else { 
+    if (denominator >= 281474976710656) {
+        15
+    } else { 
+    if (denominator >= 140737488355328) {
+        16
+    } else { 
+    if (denominator >= 70368744177664) {
+        17
+    } else { 
+    if (denominator >= 35184372088832) {
+        18
+    } else { 
+    if (denominator >= 17592186044416) {
+        19
+    } else { 
+    if (denominator >= 8796093022208) {
+        20
+    } else { 
+    if (denominator >= 4398046511104) {
+        21
+    } else { 
+    if (denominator >= 2199023255552) {
+        22
+    } else { 
+    if (denominator >= 1099511627776) {
+        23
+    } else { 
+    if (denominator >= 549755813888) {
+        24
+    } else { 
+    if (denominator >= 274877906944) {
+        25
+    } else { 
+    if (denominator >= 137438953472) {
+        26
+    } else { 
+    if (denominator >= 68719476736) {
+        27
+    } else { 
+    if (denominator >= 34359738368) {
+        28
+    } else { 
+    if (denominator >= 17179869184) {
+        29
+    } else { 
+    if (denominator >= 8589934592) {
+        30
+    } else { 
+    if (denominator >= 4294967296) {
+        31
+    } else { 
+    if (denominator >= 2147483648) {
+        32
+    } else { 
+    if (denominator >= 1073741824) {
+        33
+    } else { 
+    if (denominator >= 536870912) {
+        34
+    } else { 
+    if (denominator >= 268435456) {
+        35
+    } else { 
+    if (denominator >= 134217728) {
+        36
+    } else { 
+    if (denominator >= 67108864) {
+        37
+    } else { 
+    if (denominator >= 33554432) {
+        38
+    } else { 
+    if (denominator >= 16777216) {
+        39
+    } else { 
+    if (denominator >= 8388608) {
+        40
+    } else { 
+    if (denominator >= 4194304) {
+        41
+    } else { 
+    if (denominator >= 2097152) {
+        42
+    } else { 
+    if (denominator >= 1048576) {
+        43
+    } else { 
+    if (denominator >= 524288) {
+        44
+    } else { 
+    if (denominator >= 262144) {
+        45
+    } else { 
+    if (denominator >= 131072) {
+        46
+    } else { 
+    if (denominator >= 65536) {
+        47
+    } else { 
+    if (denominator >= 32768) {
+        48
+    } else { 
+    if (denominator >= 16384) {
+        49
+    } else { 
+    if (denominator >= 8192) {
+        50
+    } else { 
+    if (denominator >= 4096) {
+        51
+    } else { 
+    if (denominator >= 2048) {
+        52
+    } else { 
+    if (denominator >= 1024) {
+        53
+    } else { 
+    if (denominator >= 512) {
+        54
+    } else { 
+    if (denominator >= 256) {
+        55
+    } else { 
+    if (denominator >= 128) {
+        56
+    } else { 
+    if (denominator >= 64) {
+        57
+    } else { 
+    if (denominator >= 32) {
+        58
+    } else { 
+    if (denominator >= 16) {
+        59
+    } else { 
+    if (denominator >= 8) {
+        60
+    } else { 
+    if (denominator >= 4) {
+        61
+    } else { 
+    if (denominator >= 2) {
+        62
+    } else { 
+    if (denominator >= 1) {
+        63
+    } else {
+        64
+    } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+])]
+fn expr_u64<F:Field> (value: u64) -> AbExpression<F>;
+
+fn new_assert(denominator: u64, MAX_N_BYTES_INTEGER: usize) {
+    unimplemented!()
+    // assert!(31 * 8 + 64 - leading_zeros_u64(denominator) as usize <= MAX_N_BYTES_INTEGER * 8)
+}
+
+#[extern_spec]
+#[flux::sig(fn(u64[@denominator], usize[@MAX_N_BYTES_INTEGER]) -> {() | 
+    31 * 8 + 64 - (
+
+        if (denominator >= 9223372036854775808) {
+            0
+        } else { 
+        if (denominator >= 4611686018427387904) {
+            1
+        } else {
+        if (denominator >= 2305843009213693952) {
+            2
+        } else { 
+        if (denominator >= 1152921504606846976) {
+            3
+        } else { 
+        if (denominator >= 576460752303423488) {
+            4
+        } else { 
+        if (denominator >= 288230376151711744) {
+            5
+        } else { 
+        if (denominator >= 144115188075855872) {
+            6
+        } else { 
+        if (denominator >= 72057594037927936) {
+            7
+        } else { 
+        if (denominator >= 36028797018963968) {
+            8
+        } else { 
+        if (denominator >= 18014398509481984) {
+            9
+        } else { 
+        if (denominator >= 9007199254740992) {
+            10
+        } else { 
+        if (denominator >= 4503599627370496) {
+            11
+        } else { 
+        if (denominator >= 2251799813685248) {
+            12
+        } else { 
+        if (denominator >= 1125899906842624) {
+            13
+        } else { 
+        if (denominator >= 562949953421312) {
+            14
+        } else { 
+        if (denominator >= 281474976710656) {
+            15
+        } else { 
+        if (denominator >= 140737488355328) {
+            16
+        } else { 
+        if (denominator >= 70368744177664) {
+            17
+        } else { 
+        if (denominator >= 35184372088832) {
+            18
+        } else { 
+        if (denominator >= 17592186044416) {
+            19
+        } else { 
+        if (denominator >= 8796093022208) {
+            20
+        } else { 
+        if (denominator >= 4398046511104) {
+            21
+        } else { 
+        if (denominator >= 2199023255552) {
+            22
+        } else { 
+        if (denominator >= 1099511627776) {
+            23
+        } else { 
+        if (denominator >= 549755813888) {
+            24
+        } else { 
+        if (denominator >= 274877906944) {
+            25
+        } else { 
+        if (denominator >= 137438953472) {
+            26
+        } else { 
+        if (denominator >= 68719476736) {
+            27
+        } else { 
+        if (denominator >= 34359738368) {
+            28
+        } else { 
+        if (denominator >= 17179869184) {
+            29
+        } else { 
+        if (denominator >= 8589934592) {
+            30
+        } else { 
+        if (denominator >= 4294967296) {
+            31
+        } else { 
+        if (denominator >= 2147483648) {
+            32
+        } else { 
+        if (denominator >= 1073741824) {
+            33
+        } else { 
+        if (denominator >= 536870912) {
+            34
+        } else { 
+        if (denominator >= 268435456) {
+            35
+        } else { 
+        if (denominator >= 134217728) {
+            36
+        } else { 
+        if (denominator >= 67108864) {
+            37
+        } else { 
+        if (denominator >= 33554432) {
+            38
+        } else { 
+        if (denominator >= 16777216) {
+            39
+        } else { 
+        if (denominator >= 8388608) {
+            40
+        } else { 
+        if (denominator >= 4194304) {
+            41
+        } else { 
+        if (denominator >= 2097152) {
+            42
+        } else { 
+        if (denominator >= 1048576) {
+            43
+        } else { 
+        if (denominator >= 524288) {
+            44
+        } else { 
+        if (denominator >= 262144) {
+            45
+        } else { 
+        if (denominator >= 131072) {
+            46
+        } else { 
+        if (denominator >= 65536) {
+            47
+        } else { 
+        if (denominator >= 32768) {
+            48
+        } else { 
+        if (denominator >= 16384) {
+            49
+        } else { 
+        if (denominator >= 8192) {
+            50
+        } else { 
+        if (denominator >= 4096) {
+            51
+        } else { 
+        if (denominator >= 2048) {
+            52
+        } else { 
+        if (denominator >= 1024) {
+            53
+        } else { 
+        if (denominator >= 512) {
+            54
+        } else { 
+        if (denominator >= 256) {
+            55
+        } else { 
+        if (denominator >= 128) {
+            56
+        } else { 
+        if (denominator >= 64) {
+            57
+        } else { 
+        if (denominator >= 32) {
+            58
+        } else { 
+        if (denominator >= 16) {
+            59
+        } else { 
+        if (denominator >= 8) {
+            60
+        } else { 
+        if (denominator >= 4) {
+            61
+        } else { 
+        if (denominator >= 2) {
+            62
+        } else { 
+        if (denominator >= 1) {
+            63
+        } else {
+            64
+        } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+
+    ) <= MAX_N_BYTES_INTEGER * 8
+})]
+fn new_assert(denominator: u64, MAX_N_BYTES_INTEGER: usize) -> ();
+
 
 /// Returns (quotient: numerator/denominator, remainder: numerator%denominator),
 /// with `numerator` an expression and `denominator` a constant.
@@ -240,36 +985,38 @@ fn RangeCheckGadget_construct<F:Field, const N_BYTES: usize>(value: Expression<F
 /// - `quotient < 256**N_BYTES`
 /// - `quotient * denominator < field size`
 /// - `remainder < denominator` requires a range lookup table for `denominator`
-pub struct ConstantDivisionGadget<F:Field, const N_BYTES: usize> {
+pub struct ConstantDivisionGadget<F:Field> {
     quotient: Cell<F>,
     remainder: Cell<F>,
     denominator: u64,
-    quotient_range_check: RangeCheckGadget<F, N_BYTES>,
+    quotient_range_check: RangeCheckGadget<F>,
 }
 
-impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
-    // #[flux::sig(fn<F>({Expression<F>[@numerator] | ok(interp(numerator))},
-    //     { u64[@denominator] | ok(u64_to_f(numerator)) < 8}) -> ...)]
-    pub(crate) fn construct(
-        numerator: Expression<F>, // numerator: {v | vbit(v)==256}
-        denominator: u64, // denominator: {v | vbit(v)==64}
+impl<F: Field> ConstantDivisionGadget<F> {
+    #[flux::sig(fn(AbExpression<F>[256], {u64[@denominator] | denominator == 18446744073709551615}) -> 
+    ConstantDivisionGadget<F>
+)]
+    pub fn construct(
+        numerator: AbExpression<F>, // numerator: {v | vbit(v)==256}
+        denominator: u64, // denominator: {v | vbit(v)==64} ; vbit of u64 is (64 - leading_zeros_u64(v)) here
     ) -> Self {
-        assert!(N_BYTES * 8 + 64 - denominator.leading_zeros() as usize <= MAX_N_BYTES_INTEGER * 8);
-        let quotient = query_cell_with_type(&numerator);
-        let remainder = query_cell_with_type(&numerator);
+        let MAX_N_BYTES_INTEGER: usize = 31;
+        // new_assert(denominator, MAX_N_BYTES_INTEGER);
+        let quotient = query_cell_with_type(MAX_N_BYTES_INTEGER, &numerator); // quotient: {v | vbit(v) == 31*8}
+        let remainder = query_cell_with_type(MAX_N_BYTES_INTEGER, &numerator); // remainder: {v | vbit(v) == 31*8}
 
-        // Require that remainder < denominator
-        range_lookup(remainder.expr(), denominator);
+        // currently range_lookup should require vbit(remainder) <= vbit(denominator) according to the signature I defined
+        // but it doesn't generate an error, why is it?
+        range_lookup(&remainder.expr(), denominator);
 
-        // Require that quotient < 256**N_BYTES
-        // so we can't have any overflow when doing `quotient * denominator`.
-        let quotient_range_check = RangeCheckGadget_construct(quotient.expr());
+        // currently quotient_range_check should require vbit(quotient) <= 8 * 31 according to the signature I defined, but is it really functioning?
+        let quotient_range_check = RangeCheckGadget_construct(MAX_N_BYTES_INTEGER, &quotient.expr());
 
-        // Check if the division was done correctly
+        // currently require_equal should require vbit(first) >= vbit(second) according to the signature I defined, but is it really functioning?
         require_equal(
             "numerator - remainder == quotient ⋅ denominator",
             expression_sub::<F>(numerator, remainder.expr()),
-            expression_mul::<F>(quotient.expr(), denominator.expr()),
+            expression_mul::<F>(quotient.expr(), expr_u64::<F>(denominator)),
         );
 
         Self {
@@ -280,163 +1027,11 @@ impl<F: Field, const N_BYTES: usize> ConstantDivisionGadget<F, N_BYTES> {
         }
     }
 
-    pub(crate) fn quotient(&self) -> Expression<F> {
+    pub fn quotient(&self) -> AbExpression<F> {
         self.quotient.expr()
     }
 
-    pub(crate) fn remainder(&self) -> Expression<F> {
+    pub fn remainder(&self) -> AbExpression<F> {
         self.remainder.expr()
     }
-
-    // pub(crate) fn assign(
-    //     &self,
-    //     region: &mut CachedRegion<'_, '_, F>,
-    //     offset: usize,
-    //     numerator: u128,
-    // ) -> Result<(u128, u128), Error> {
-    //     let denominator = self.denominator as u128;
-    //     let quotient = numerator / denominator;
-    //     let remainder = numerator % denominator;
-
-    //     self.quotient
-    //         .assign(region, offset, Value::known(F::from_u128(quotient)))?;
-    //     self.remainder
-    //         .assign(region, offset, Value::known(F::from_u128(remainder)))?;
-
-    //     self.quotient_range_check
-    //         .assign(region, offset, F::from_u128(quotient))?;
-
-    //     Ok((quotient, remainder))
-    // }
-
-    // pub(crate) fn assign_value(
-    //     &self,
-    //     region: &mut CachedRegion<'_, '_, F>,
-    //     offset: usize,
-    //     numerator: Value<F>,
-    // ) -> Result<Value<(u128, u128)>, Error> {
-    //     transpose_val_ret(
-    //         numerator.map(|numerator| self.assign(region, offset, numerator.get_lower_128())),
-    //     )
-    // }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::{test_util::*, *};
-//     use crate::util::Field;
-//     use eth_types::*;
-//     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Error};
-
-//     #[derive(Clone)]
-//     /// ConstantDivisionTestContainer:
-//     /// require(a(N_BYTES) == DENOMINATOR * QUOTIENT + REMAINDER)
-//     struct ConstantDivisionTestContainer<
-//         F,
-//         const N_BYTES: usize,
-//         const DENOMINATOR: u64,
-//         const QUOTIENT: u64,
-//         const REMINDER: u64,
-//     > {
-//         constdiv_gadget: ConstantDivisionGadget<F, N_BYTES>,
-//         a: Cell<F>,
-//     }
-
-//     impl<
-//             F: Field,
-//             const N_BYTES: usize,
-//             const DENOMINATOR: u64,
-//             const QUOTIENT: u64,
-//             const REMAINDER: u64,
-//         > MathGadgetContainer<F>
-//         for ConstantDivisionTestContainer<F, N_BYTES, DENOMINATOR, QUOTIENT, REMAINDER>
-//     {
-//         fn configure_gadget_container(cb: &mut EVMConstraintBuilder<F>) -> Self {
-//             let a = cb.query_cell();
-//             let constdiv_gadget =
-//                 ConstantDivisionGadget::<F, N_BYTES>::construct(cb, a.expr(), DENOMINATOR);
-
-//             cb.require_equal(
-//                 "correct reminder",
-//                 constdiv_gadget.remainder(),
-//                 REMAINDER.expr(),
-//             );
-
-//             cb.require_equal(
-//                 "correct quotient",
-//                 constdiv_gadget.quotient(),
-//                 QUOTIENT.expr(),
-//             );
-
-//             ConstantDivisionTestContainer { constdiv_gadget, a }
-//         }
-
-//         fn assign_gadget_container(
-//             &self,
-//             witnesses: &[Word],
-//             region: &mut CachedRegion<'_, '_, F>,
-//         ) -> Result<(), Error> {
-//             let a = u64::from_le_bytes(witnesses[0].to_le_bytes()[..8].try_into().unwrap());
-//             let offset = 0;
-
-//             self.a.assign(region, offset, Value::known(F::from(a)))?;
-//             self.constdiv_gadget.assign(region, offset, a as u128)?;
-
-//             Ok(())
-//         }
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_0div5_rem0() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 5, 0, 0>,
-//             [Word::from(0)],
-//             true,
-//         );
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_5div5_rem0() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 5, 1, 0>,
-//             [Word::from(5)],
-//             true,
-//         );
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_1div5_rem1() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 5, 0, 1>,
-//             [Word::from(1)],
-//             true,
-//         );
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_1div5_rem4() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 5, 1, 4>,
-//             [Word::from(1)],
-//             false,
-//         );
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_quotient_overflow() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 5, 4294967296u64, 1>,
-//             [Word::from(1u64 << (4 * 8)) * 5 + 1],
-//             false,
-//         );
-//     }
-
-//     #[test]
-//     fn test_constantdivisiongadget_33_div16_rem17() {
-//         try_test!(
-//             ConstantDivisionTestContainer<Fr, 4, 16, 1, 17>,
-//             [Word::from(33)],
-//             false,
-//         );
-//     }
-// }
